@@ -5,6 +5,7 @@
   "scripts": {
     "ng": "ng",
     "start": "ng serve",
+    "start:server": "nodemon --exec ts-node ./server/index.ts",
     "build": "ng build --prod",
     "test": "ng test",
     "lint": "ng lint",
