@@ -2,10 +2,6 @@ import * as XRay from 'x-ray';
 import { writeFile } from 'fs';
 
 export class PageRetriever {
-  private storage: Storage;
-  constructor() {
-    this.storage = new Storage();
-  }
   getAndSave(url: string) {
     const xray = XRay({
       filters: {

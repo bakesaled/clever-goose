@@ -22,10 +22,14 @@ export class RetrievalRoute {
   public init(server: AppServer) {
     this.server = server;
 
-    return this.router.get('/', (req: Request, res: Response) => {
-      this.pageRetriever.getAndSave('https://blog.ycombinator.com/');
-      this.fileAnalyzer.readFileAndAnalyze('dom.js');
-      res.status(200).send(true);
-    });
+    return this.router
+      .get('/', (req: Request, res: Response) => {
+        this.pageRetriever.getAndSave('https://blog.ycombinator.com/');
+        res.status(200).send(true);
+      })
+      .get('/analyze', (req: Request, res: Response) => {
+        this.fileAnalyzer.readFileAndAnalyze('dom.json');
+        res.status(200).send(true);
+      });
   }
 }
