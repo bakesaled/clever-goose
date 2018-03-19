@@ -10,7 +10,7 @@ export class FileAnalyzer {
 
     const result = xray(dom.body, {
       title: 'title',
-      body: 'body@html | trim'
+      body: 'body@html'
     });
 
     result((err, val) => {
@@ -23,6 +23,6 @@ export class FileAnalyzer {
   }
 
   analyze(text: string) {
-    console.log('analyzing');
+    console.log('analyzing', text);
   }
 }
