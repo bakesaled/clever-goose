@@ -23,6 +23,9 @@ export class Trainer {
     console.log(classifier.classify('Eat six meals a day'));
     console.log(classifier.classify('Eat two meals a day'));
     console.log(classifier.classify('I get 80% of my calories from fat'));
+    console.log(
+      classifier.getClassifications('I get 80% of my calories from fat')
+    );
     console.log('--------');
   }
 }
