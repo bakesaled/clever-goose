@@ -1,31 +1,83 @@
 import * as natural from 'natural';
+import { readJson } from 'fs-extra';
+import { DataSet } from '../interfaces/data-set';
 
 export class Trainer {
-  train() {
-    const bayesClassifier = new natural.BayesClassifier();
-    this.doTraining(bayesClassifier);
+  private trainingSets: DataSet[];
+  private testSets: DataSet[];
 
-    const logisticClassifier = new natural.LogisticRegressionClassifier();
-    this.doTraining(logisticClassifier);
+  train() {
+    this.getData('server/test-sets', 'frequency', 'macro')
+      .then(result => {
+        this.testSets = result;
+        console.log('Test set size: ' + this.testSets.length);
+      })
+      .then(() => {
+        this.getData('server/training-sets', 'frequency', 'macro')
+          .then(result => {
+            this.trainingSets = result;
+            console.log('Training set size: ' + this.trainingSets.length);
+
+            this.preprocess(this.trainingSets);
+
+            const bayesClassifier = new natural.BayesClassifier();
+            this.doTraining(bayesClassifier);
+            this.evaluate(bayesClassifier);
+
+            const logisticClassifier = new natural.LogisticRegressionClassifier();
+            this.doTraining(logisticClassifier);
+            this.evaluate(logisticClassifier);
+          })
+          .catch(err => console.error(err));
+      })
+      .catch(err => console.error(err));
+  }
+
+  private getData(folderName, setNameA, setNameB) {
+    return readJson(`${folderName}/set-${setNameA}.json`).then(setA => {
+      return readJson(`${folderName}/set-${setNameB}.json`).then(setB => {
+        const list = [
+          ...setA.data.map(text => ({ text, classification: setNameA })),
+          ...setB.data.map(text => ({ text, classification: setNameB }))
+        ];
+        this.shuffleArray(list);
+        return Promise.resolve(list);
+      });
+    });
   }
 
   private doTraining(classifier) {
-    classifier.addDocument(['fat', '10%', 'limit'], 'unhealthy');
-    classifier.addDocument(['carbohydrates', '60%'], 'unhealthy');
-    classifier.addDocument(['carbohydrates', '20%'], 'healthy');
-    classifier.addDocument(['fat', '60%'], 'healthy');
-    classifier.addDocument(['meals', '2', 'two'], 'healthy');
-    classifier.addDocument(['meals', '5', 'five'], 'unhealthy');
-    classifier.train();
+    this.trainingSets.forEach(set => {
+      classifier.addDocument(set.text, set.classification);
+    });
 
-    console.log(classifier.classify('Limit your fat consumption'));
-    console.log(classifier.classify('Eat mostly healthy carbohydrates'));
-    console.log(classifier.classify('Eat six meals a day'));
-    console.log(classifier.classify('Eat two meals a day'));
-    console.log(classifier.classify('I get 80% of my calories from fat'));
+    classifier.train();
+  }
+
+  private preprocess(dataSet: DataSet[]) {
+    dataSet.forEach(set => {
+      set.text.toLowerCase();
+    });
+  }
+
+  private evaluate(classifier) {
+    let correctCount = 0;
+    this.testSets.forEach(set => {
+      if (classifier.classify(set.text) === set.classification) {
+        correctCount++;
+      }
+    });
+    const accuracy = correctCount / this.testSets.length;
     console.log(
-      classifier.getClassifications('I get 80% of my calories from fat')
+      'Accuracy: ' + (accuracy * 100).toFixed(1) + '%',
+      classifier.constructor.name
     );
-    console.log('--------');
+  }
+
+  private shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [array[i], array[j]] = [array[j], array[i]];
+    }
   }
 }
