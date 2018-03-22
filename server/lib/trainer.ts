@@ -3,46 +3,97 @@ import { readJson } from 'fs-extra';
 import { DataSet } from '../interfaces/data-set';
 
 export class Trainer {
-  private trainingSets: DataSet[];
-  private testSets: DataSet[];
+  private trainingSets: DataSet[] = [];
+  private testSets: DataSet[] = [];
 
   train() {
-    this.getData('server/test-sets', 'frequency', 'macro')
-      .then(result => {
-        this.testSets = result;
-        console.log('Test set size: ' + this.testSets.length);
-      })
+    this.trainMacroFrequency()
       .then(() => {
-        this.getData('server/training-sets', 'frequency', 'macro')
-          .then(result => {
-            this.trainingSets = result;
-            console.log('Training set size: ' + this.trainingSets.length);
-
-            this.preprocess(this.trainingSets);
-
-            const bayesClassifier = new natural.BayesClassifier();
-            this.doTraining(bayesClassifier);
-            this.evaluate(bayesClassifier);
-
-            const logisticClassifier = new natural.LogisticRegressionClassifier();
-            this.doTraining(logisticClassifier);
-            this.evaluate(logisticClassifier);
-          })
-          .catch(err => console.error(err));
+        this.clear();
+        this.trainHealthyUnhealthy().catch(err => console.error(err));
       })
       .catch(err => console.error(err));
   }
 
-  private getData(folderName, setNameA, setNameB) {
-    return readJson(`${folderName}/set-${setNameA}.json`).then(setA => {
-      return readJson(`${folderName}/set-${setNameB}.json`).then(setB => {
-        const list = [
-          ...setA.data.map(text => ({ text, classification: setNameA })),
-          ...setB.data.map(text => ({ text, classification: setNameB }))
-        ];
-        this.shuffleArray(list);
-        return Promise.resolve(list);
-      });
+  private trainMacroFrequency() {
+    console.log('--------');
+    console.log('Training Macro-Frequency');
+    return Promise.all([
+      this.getData('server/training-sets', 'frequency', 'macro').then(
+        result => {
+          this.trainingSets = [...this.trainingSets, ...result];
+        }
+      ),
+      this.getData('server/test-sets', 'frequency', 'macro').then(result => {
+        this.testSets = [...this.testSets, ...result];
+      })
+    ])
+      .then(() => {
+        console.log('Training set size: ' + this.trainingSets.length);
+        console.log('Test set size: ' + this.testSets.length);
+
+        this.preprocess(this.trainingSets);
+
+        const bayesClassifier = new natural.BayesClassifier();
+        this.doTraining(bayesClassifier);
+        this.evaluate(bayesClassifier);
+
+        const logisticClassifier = new natural.LogisticRegressionClassifier();
+        this.doTraining(logisticClassifier);
+        this.evaluate(logisticClassifier);
+      })
+      .catch(err => console.error(err));
+  }
+
+  private trainHealthyUnhealthy() {
+    console.log('--------');
+    console.log('Training Healthy-Unhealthy');
+    return Promise.all([
+      this.getData('server/training-sets', 'healthy', 'unhealthy').then(
+        result => {
+          this.trainingSets = [...this.trainingSets, ...result];
+        }
+      ),
+      this.getData('server/test-sets', 'healthy', 'unhealthy').then(result => {
+        this.testSets = [...this.testSets, ...result];
+      })
+    ])
+      .then(() => {
+        console.log('Training set size: ' + this.trainingSets.length);
+        console.log('Test set size: ' + this.testSets.length);
+
+        this.preprocess(this.trainingSets);
+
+        const bayesClassifier = new natural.BayesClassifier();
+        this.doTraining(bayesClassifier);
+        this.evaluate(bayesClassifier);
+
+        const logisticClassifier = new natural.LogisticRegressionClassifier();
+        this.doTraining(logisticClassifier);
+        this.evaluate(logisticClassifier);
+      })
+      .catch(err => console.error(err));
+  }
+
+  private clear() {
+    this.trainingSets = [];
+    this.testSets = [];
+  }
+
+  private getData(folderName, ...setNames) {
+    let list = [];
+    return Promise.all(
+      setNames.map(name => {
+        return readJson(`${folderName}/set-${name}.json`).then(set => {
+          list = [
+            ...list,
+            ...set.data.map(text => ({ text, classification: name }))
+          ];
+        });
+      })
+    ).then(() => {
+      this.shuffleArray(list);
+      return Promise.resolve(list);
     });
   }
 
@@ -63,6 +114,11 @@ export class Trainer {
   private evaluate(classifier) {
     let correctCount = 0;
     this.testSets.forEach(set => {
+      // console.log(
+      //   'classifier: ',
+      //   set.text,
+      //   classifier.getClassifications(set.text)
+      // );
       if (classifier.classify(set.text) === set.classification) {
         correctCount++;
       }
